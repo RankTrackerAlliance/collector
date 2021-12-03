@@ -1,18 +1,59 @@
-// Load the SDK and UUID
-import AWS, { AWSError } from 'aws-sdk'
+import axios from 'axios'
 import brotli from 'brotli'
 
-// Create an S3 client
-const credentials = new AWS.SharedIniFileCredentials({ profile: 'b2' })
-AWS.config.credentials = credentials
-const ep = new AWS.Endpoint(
-  // 's3.us-west-002.backblazeb2.com'
-  process.env.BACKBLAZE_B2_S3_ENDPOINT as string,
-)
-const s3 = new AWS.S3({ endpoint: ep })
+type BackblazeAuthResponse = {
+  absoluteMinimumPartSize: number
+  accountId: string
+  allowed: {
+    bucketId: string
+    bucketName: string
+    capabilities?: string[] | null
+    namePrefix?: null
+  }
+  apiUrl: string
+  authorizationToken: string
+  downloadUrl: string
+  recommendedPartSize: number
+}
 
-// Create a bucket and upload something into it
-const bucketName = 'serps'
+type BackblazeGetUploadResponse = {
+  authorizationToken: string
+  bucketId: string
+  uploadUrl: string
+}
+
+type ListFilesResponse = {
+  files?: FilesEntity[] | null
+  nextFileName?: null
+}
+type FilesEntity = {
+  accountId: string
+  action: string
+  bucketId: string
+  contentLength: number
+  contentSha1: string
+  contentType: string
+  fileId: string
+  fileName: string
+  uploadTimestamp: number
+  // fileInfo: FileInfo;
+  // fileRetention: FileRetention;
+  // legalHold: LegalHold;
+  // serverSideEncryption: ServerSideEncryption;
+}
+
+async function getBackblazeAuth() {
+  const authKeys = Buffer.from(
+    `${process.env.BACKBLAZE_APP_ID}:${process.env.BACKBLAZE_APP_KEY}`,
+  ).toString('base64')
+
+  const { data } = await axios.get<BackblazeAuthResponse>(
+    `https://api.backblazeb2.com/b2api/v2/b2_authorize_account`,
+    { headers: { Authorization: `Basic ${authKeys}` } },
+  )
+
+  return data
+}
 
 export async function compressAndStoreHtml(
   html: string,
@@ -22,38 +63,52 @@ export async function compressAndStoreHtml(
   const htmlBuffer = Buffer.from(html, 'utf8')
 
   // Compress html with brotli
-  const compressedHtml = await brotli.compress(htmlBuffer, {
+  const compressedHtml = brotli.compress(htmlBuffer, {
     mode: 1,
     quality: 11,
   })
 
-  // Store the html
-  await s3
-    .putObject({
-      Bucket: bucketName,
-      Key: bucketObjectKey,
-      Body: compressedHtml,
-    })
-    .promise()
+  // Generate upload url for backblaze
+
+  const { apiUrl, authorizationToken } = await getBackblazeAuth()
+
+  const {
+    data: { uploadUrl },
+  } = await axios.post<BackblazeGetUploadResponse>(
+    `${apiUrl}/b2api/v2/b2_get_upload_url`,
+    { bucketId: process.env.BACKBLAZE_BUCKET_ID },
+    { headers: { Authorization: authorizationToken } },
+  )
+
+  await axios.post(uploadUrl, compressedHtml, {
+    headers: {
+      Authorization: authorizationToken,
+      'Content-Type': 'text/html',
+      'X-Bz-File-Name': `${bucketObjectKey}`,
+    },
+  })
 }
 
 export async function checkHtmlStored(
   bucketObjectKey: string,
 ): Promise<boolean> {
-  try {
-    await s3
-      .headObject({
-        Bucket: bucketName,
-        Key: bucketObjectKey,
-      })
-      .promise()
-  } catch (err: unknown) {
-    if ((err as AWSError | undefined)?.code === 'NotFound') {
-      return false
-    }
+  const { apiUrl, authorizationToken } = await getBackblazeAuth()
 
-    throw err
+  const { data } = await axios.post<ListFilesResponse>(
+    `${apiUrl}/b2api/v2/b2_list_file_names`,
+    {
+      bucketId: process.env.BACKBLAZE_BUCKET_ID,
+      startFileName: bucketObjectKey,
+      maxFileCount: 1,
+    },
+    {
+      headers: { Authorization: authorizationToken },
+    },
+  )
+
+  if (data.files?.[0]?.fileName === bucketObjectKey) {
+    return true
   }
 
-  return true
+  return false
 }

@@ -1,5 +1,6 @@
 import { pushToBigQuery } from './bigQuery'
 import { requestSerpSeoClarity } from './providers/seoClarity'
+import { requestSerpValueSerp } from './providers/valueSerp'
 import { notifyPubSub } from './pubsub'
 import { checkHtmlStored, compressAndStoreHtml } from './storage'
 
@@ -9,7 +10,7 @@ export type KeywordRequest = {
   date: string
 }
 
-type SerpProvider = 'seoclarity' | 'nozzle'
+type SerpProvider = 'seoclarity' | 'valueserp'
 
 export type Keyword = {
   keyword_id: string
@@ -27,8 +28,8 @@ export type Keyword = {
   revision_date?: string
 }
 
-type KeywordDevice = 'Desktop' | 'iPhone' | 'Android'
-type KeywordEngine = 'Google'
+type KeywordDevice = 'desktop' | 'iphone' | 'android'
+type KeywordEngine = 'google'
 
 export async function handleRequest(request: Request): Promise<Response> {
   const cfAsn = request.cf?.asn
@@ -89,6 +90,9 @@ export async function handleRequest(request: Request): Promise<Response> {
 async function requestSerp(keywordRequest: KeywordRequest): Promise<string> {
   if (keywordRequest.serpProvider === 'seoclarity') {
     return requestSerpSeoClarity(keywordRequest.keyword)
+  }
+  if (keywordRequest.serpProvider === 'valueserp') {
+    return requestSerpValueSerp(keywordRequest.keyword)
   }
 
   throw new Error('Unsupported serp provider')
