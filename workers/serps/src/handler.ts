@@ -31,6 +31,8 @@ type KeywordDevice = 'Desktop' | 'iPhone' | 'Android'
 type KeywordEngine = 'Google'
 
 export async function handleRequest(request: Request): Promise<Response> {
+  const cfAsn = request.cf?.asn
+
   const keywordRequest = await request.json<KeywordRequest>()
   const bucketObjectKey = [
     keywordRequest.date,
@@ -69,6 +71,7 @@ export async function handleRequest(request: Request): Promise<Response> {
       keywordRequest,
       bucketObjectKey,
       preBqError ? JSON.stringify(preBqError) : null,
+      cfAsn,
     )
 
     if (preBqError) {
