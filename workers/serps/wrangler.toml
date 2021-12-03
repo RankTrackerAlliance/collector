@@ -1,5 +1,5 @@
 name = "serp-collector"
-type = "webpack"
+type = "javascript"
 zone_id = ""
 account_id = "99be8d895486e3b8f947d996b06e2592"
 route = ""
@@ -10,3 +10,7 @@ compatibility_date = "2021-12-02"
 command = "npm install && npm run build"
 [build.upload]
 format = "service-worker"
+
+[vars]
+GOOGLE_CLOUD_PROJECT = "rank-tracker-alliance"
+GCP_CLIENT_EMAIL = "serp-collector@rank-tracker-alliance.iam.gserviceaccount.com"
