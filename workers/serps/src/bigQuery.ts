@@ -8,7 +8,7 @@ export async function pushToBigQuery(
   cfAsn?: number,
 ): Promise<void> {
   await axios.post(
-    `https://bigquery.googleapis.com/bigquery/v2/projects/${process.env.GOOGLE_CLOUD_PROJECT}/datasets/serps/tables//insertAll`,
+    `https://bigquery.googleapis.com/bigquery/v2/projects/${process.env.GOOGLE_CLOUD_PROJECT}/datasets/serps/tables/request_log/insertAll`,
     {
       rows: [
         {
