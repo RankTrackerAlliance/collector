@@ -1,5 +1,5 @@
-import axios from 'axios'
 import { Keyword } from '../handler'
+import { handleFetchResponse } from '../utils/handleFetchResponse'
 
 type HtmlResponseSeoClarity = {
   data: {
@@ -10,14 +10,19 @@ type HtmlResponseSeoClarity = {
 }
 
 export async function requestSerpSeoClarity(keyword: Keyword): Promise<string> {
-  const { data } = await axios.post<HtmlResponseSeoClarity>(
-    `https://data.seoclarity.net/v1/google/live`,
-    {
-      params: {
+  const data = await handleFetchResponse(
+    fetch(
+      `https://data.seoclarity.net/v1/google/live?${new URLSearchParams({
         market: `${keyword.country_code}-${keyword.language_code}`,
         query: keyword.phrase,
         device: keyword.device, // TODO: Convert our device to the API's supported mappings
+      })}`,
+      {
+        method: 'post',
       },
+    ),
+    {
+      errorMessage: `Failed to fetch SEO Clarity SERP for keyword ${keyword.phrase}`,
     },
   )
 

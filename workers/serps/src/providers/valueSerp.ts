@@ -1,5 +1,5 @@
-import axios from 'axios'
 import { Keyword } from '../handler'
+import { handleFetchResponse } from '../utils/handleFetchResponse'
 
 type ValueSerpParams = {
   api_key: string
@@ -13,9 +13,10 @@ type ValueSerpParams = {
 }
 
 export async function requestSerpValueSerp(keyword: Keyword): Promise<string> {
+  console.log('Requesting serp from valueSerp...')
   // set up the request parameters
-  const params: ValueSerpParams = {
-    api_key: process.env.VALUESERP_API_KEY as string,
+  const searchParams: ValueSerpParams = {
+    api_key: VALUESERP_API_KEY as string,
     q: keyword.phrase,
     page: '1',
     num: '100',
@@ -32,9 +33,17 @@ export async function requestSerpValueSerp(keyword: Keyword): Promise<string> {
   }
 
   // make the http GET request to VALUE SERP
-  const { data } = await axios.get('https://api.valueserp.com/search', {
-    params,
-  })
+  const data = await handleFetchResponse<string>(
+    fetch(
+      `https://api.valueserp.com/search?${new URLSearchParams(searchParams)}`,
+    ),
+    {
+      text: true,
+      errorMessage: `Error fetching serp from valueSerp for keyword ${keyword.phrase}`,
+    },
+  )
+
+  console.log('Successfully requested serp from valueSerp.', data.slice(0, 100))
 
   return data
 }

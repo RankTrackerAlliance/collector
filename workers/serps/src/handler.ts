@@ -40,7 +40,9 @@ export async function handleRequest(request: Request): Promise<Response> {
     keywordRequest.keyword.keyword_id,
   ].join('_')
 
-  let preBqError: unknown
+  console.log('Request', { keywordRequest, bucketObjectKey })
+
+  let preBqError: undefined | Error
 
   try {
     // Check for SERP existence
@@ -62,8 +64,9 @@ export async function handleRequest(request: Request): Promise<Response> {
 
     // New SERP notification - AWS SNS / GCP PubSub
     await notifyPubSub(keywordRequest, bucketObjectKey)
-  } catch (err) {
-    preBqError = err
+  } catch (err: unknown) {
+    preBqError = err as Error
+    console.log('ERROR', preBqError.message, preBqError.stack)
   }
 
   try {
@@ -71,7 +74,7 @@ export async function handleRequest(request: Request): Promise<Response> {
     await pushToBigQuery(
       keywordRequest,
       bucketObjectKey,
-      preBqError ? JSON.stringify(preBqError) : null,
+      preBqError ? preBqError.message : null,
       cfAsn,
     )
 
@@ -80,10 +83,22 @@ export async function handleRequest(request: Request): Promise<Response> {
     }
 
     return new Response(undefined, { status: 204 })
-  } catch (err) {
-    return new Response(JSON.stringify(err, null, 2), {
-      status: 500,
-    })
+  } catch (err: unknown) {
+    if (err !== preBqError) {
+      console.log(
+        'BQ_LOG_ERROR',
+        `${(err as Error).message}\n\n${(err as Error).stack}`,
+      )
+    }
+    return new Response(
+      `${(err as Error).message}\n\n${(err as Error).stack?.replace(
+        (err as Error).message,
+        '',
+      )}`,
+      {
+        status: 500,
+      },
+    )
   }
 }
 

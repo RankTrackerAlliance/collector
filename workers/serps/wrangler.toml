@@ -8,11 +8,16 @@ compatibility_date = "2021-12-02"
 
 [build]
 command = "npm install && npm run build"
+
 [build.upload]
-format = "service-worker"
+format = "modules"
+main = "./worker.mjs"
+
+[[build.upload.rules]]
+globs = ["**/*.wasm"]
+type = "CompiledWasm"
 
 [vars]
 GOOGLE_CLOUD_PROJECT = "rank-tracker-alliance"
-GCP_CLIENT_EMAIL = "serp-collector@rank-tracker-alliance.iam.gserviceaccount.com"
 BACKBLAZE_BUCKET_ID = "2c34dab355808d2975d10c17"
 BACKBLAZE_APP_ID = "002c4a350d951c70000000001"

@@ -1,5 +1,7 @@
-import axios from 'axios'
-import brotli from 'brotli'
+// import brotli from 'brotli'
+// import { compress } from 'wasm-brotli'
+import * as brotli from 'brotli-wasm/pkg.bundler/brotli_wasm'
+import { handleFetchResponse } from './utils/handleFetchResponse'
 
 type BackblazeAuthResponse = {
   absoluteMinimumPartSize: number
@@ -26,6 +28,7 @@ type ListFilesResponse = {
   files?: FilesEntity[] | null
   nextFileName?: null
 }
+
 type FilesEntity = {
   accountId: string
   action: string
@@ -43,28 +46,36 @@ type FilesEntity = {
 }
 
 async function getBackblazeAuth() {
-  const authKeys = Buffer.from(
-    `${process.env.BACKBLAZE_APP_ID}:${process.env.BACKBLAZE_APP_KEY}`,
-  ).toString('base64')
+  console.log('Requesting backblaze auth...')
 
-  const { data } = await axios.get<BackblazeAuthResponse>(
-    `https://api.backblazeb2.com/b2api/v2/b2_authorize_account`,
-    { headers: { Authorization: `Basic ${authKeys}` } },
+  const authKeyStr = `${BACKBLAZE_APP_ID}:${BACKBLAZE_APP_KEY}`
+  console.log('authKeyStr', authKeyStr)
+
+  const authKeys = btoa(authKeyStr)
+
+  console.log('Accessing backblaze api...')
+
+  return await handleFetchResponse<BackblazeAuthResponse>(
+    fetch(`https://api.backblazeb2.com/b2api/v2/b2_authorize_account`, {
+      headers: { Authorization: `Basic ${authKeys}` },
+    }),
+    {
+      errorMessage: `Backblaze auth failed`,
+    },
   )
-
-  return data
 }
 
 export async function compressAndStoreHtml(
   html: string,
   bucketObjectKey: string,
 ): Promise<void> {
-  // convert html from string into a buffer
-  const htmlBuffer = Buffer.from(html, 'utf8')
-
   // Compress html with brotli
-  const compressedHtml = brotli.compress(htmlBuffer, {
-    mode: 1,
+  // const compressedHtml = brotli.compress(htmlBuffer, {
+  //   quality: 11,
+  //   mode: 1,
+  // })
+  console.log('Encoding html to bytes and compressing with brotli...')
+  const compressedHtml = await brotli.compress(new TextEncoder().encode(html), {
     quality: 11,
   })
 
@@ -72,21 +83,33 @@ export async function compressAndStoreHtml(
 
   const { apiUrl, authorizationToken } = await getBackblazeAuth()
 
-  const {
-    data: { uploadUrl },
-  } = await axios.post<BackblazeGetUploadResponse>(
-    `${apiUrl}/b2api/v2/b2_get_upload_url`,
-    { bucketId: process.env.BACKBLAZE_BUCKET_ID },
-    { headers: { Authorization: authorizationToken } },
+  console.log('Requesting backblaze uploadUrl...')
+  const { uploadUrl } = await handleFetchResponse<BackblazeGetUploadResponse>(
+    fetch(`${apiUrl}/b2api/v2/b2_get_upload_url`, {
+      method: 'post',
+      body: JSON.stringify({ bucketId: BACKBLAZE_BUCKET_ID }),
+      headers: { Authorization: authorizationToken },
+    }),
+    { errorMessage: `Backblaze get upload url failed` },
   )
 
-  await axios.post(uploadUrl, compressedHtml, {
-    headers: {
-      Authorization: authorizationToken,
-      'Content-Type': 'text/html',
-      'X-Bz-File-Name': `${bucketObjectKey}`,
+  console.log('Uploading to backblaze URL...')
+  await handleFetchResponse(
+    fetch(uploadUrl, {
+      method: 'post',
+      body: compressedHtml,
+      headers: {
+        'Content-Type': 'application/brotli',
+        Authorization: authorizationToken,
+        'X-Bz-File-Name': `${bucketObjectKey}`,
+      },
+    }),
+    {
+      errorMessage: `Backblaze upload failed`,
     },
-  })
+  )
+
+  console.log('Backblaze upload successful')
 }
 
 export async function checkHtmlStored(
@@ -94,21 +117,27 @@ export async function checkHtmlStored(
 ): Promise<boolean> {
   const { apiUrl, authorizationToken } = await getBackblazeAuth()
 
-  const { data } = await axios.post<ListFilesResponse>(
-    `${apiUrl}/b2api/v2/b2_list_file_names`,
-    {
-      bucketId: process.env.BACKBLAZE_BUCKET_ID,
-      startFileName: bucketObjectKey,
-      maxFileCount: 1,
-    },
-    {
+  console.log('Checking if html is stored...')
+  const data = await handleFetchResponse<ListFilesResponse>(
+    fetch(`${apiUrl}/b2api/v2/b2_list_file_names`, {
+      method: 'post',
       headers: { Authorization: authorizationToken },
+      body: JSON.stringify({
+        bucketId: BACKBLAZE_BUCKET_ID,
+        startFileName: bucketObjectKey,
+        maxFileCount: 1,
+      }),
+    }),
+    {
+      errorMessage: `Backblaze list file names failed`,
     },
   )
 
   if (data.files?.[0]?.fileName === bucketObjectKey) {
+    console.log('HTML is already stored')
     return true
   }
 
+  console.log('HTML has not been stored yet')
   return false
 }

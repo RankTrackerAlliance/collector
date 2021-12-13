@@ -1,7 +1,7 @@
 // import { SNSClient, PublishCommand } from '@aws-sdk/client-sns'
-import axios from 'axios'
 //
 import { KeywordRequest } from './handler'
+import { handleFetchResponse } from './utils/handleFetchResponse'
 
 // Create SNS service object.
 // const snsClient = new SNSClient({ region: 'us-east-1' })
@@ -31,25 +31,33 @@ export async function notifyPubSub(
 
   // Notify GCP PubSub
 
-  const gcpPromise = axios.post(
-    `https://pubsub.googleapis.com/v1/projects/${process.env.GOOGLE_CLOUD_PROJECT}/topics/serps-completed:publish`,
-    {
-      messages: [
-        {
-          data: Buffer.from(stringifiedPayload).toString('base64'),
-          messageId: bucketObjectKey,
-        },
-      ],
-    },
-    {
-      params: {
-        key: process.env.GCP_API_KEY,
-      },
-    },
-  )
-
   await Promise.all([
     // snsPromise,
-    gcpPromise,
+    handleFetchResponse(
+      fetch(
+        `https://pubsub.googleapis.com/v1/projects/${GOOGLE_CLOUD_PROJECT}/topics/serps-completed:publish?${new URLSearchParams(
+          {
+            key: GCP_API_KEY,
+          },
+        )}`,
+        {
+          method: 'post',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            messages: [
+              {
+                data: Buffer.from(stringifiedPayload).toString('base64'),
+                messageId: bucketObjectKey,
+              },
+            ],
+          }),
+        },
+      ),
+      {
+        errorMessage: 'GCP PubSub Error',
+      },
+    ),
   ])
 }

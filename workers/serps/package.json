@@ -1,15 +1,16 @@
 {
-  "name": "worker-typescript-template",
+  "description": "RTA Serps Collector Worker",
   "version": "1.0.0",
-  "description": "Cloudflare worker TypeScript template",
-  "main": "dist/worker.js",
+  "private": true,
+  "module": "./dist/index.mjs",
   "scripts": {
-    "build": "webpack",
-    "format": "prettier --write  '*.{json,js}' 'src/**/*.{js,ts}' 'test/**/*.{js,ts}'",
-    "lint": "eslint --max-warnings=0 src && prettier --check '*.{json,js}' 'src/**/*.{js,ts}' 'test/**/*.{js,ts}'",
-    "test": "jest --config jestconfig.json --verbose"
+    "build": "node build.mjs",
+    "dev": "miniflare --watch --debug --port 8787",
+    "format": "prettier --write '**/*.{ts,mjs,js,html,css,json,md}'",
+    "test": "jest --config jestconfig.json --verbose",
+    "publish": "cross-env NODE_ENV=production wrangler publish"
   },
-  "author": "author",
+  "author": "<tannerlinsley@gmail.com> Tanner Linsley",
   "license": "MIT OR Apache-2.0",
   "eslintConfig": {
     "root": true,
@@ -18,16 +19,23 @@
       "prettier"
     ]
   },
+  "engines": {
+    "node": ">=14"
+  },
   "devDependencies": {
     "@cloudflare/workers-types": "^3.0.0",
     "@types/jest": "^26.0.23",
     "@types/service-worker-mock": "^2.0.1",
     "@typescript-eslint/eslint-plugin": "^4.16.1",
     "@typescript-eslint/parser": "^4.16.1",
+    "esbuild": "^0.13.4",
+    "esbuild-jest": "^0.5.0",
     "eslint": "^7.21.0",
     "eslint-config-prettier": "^8.1.0",
     "eslint-config-typescript": "^3.0.0",
+    "isomorphic-fetch": "^3.0.0",
     "jest": "^27.0.1",
+    "miniflare": "^1.4.1",
     "prettier": "^2.3.0",
     "service-worker-mock": "^2.0.5",
     "ts-jest": "^27.0.1",
@@ -38,9 +46,9 @@
   },
   "dependencies": {
     "@aws-sdk/client-sns": "^3.43.0",
-    "@types/brotli": "^1.3.1",
     "aws-sdk": "^2.1042.0",
-    "axios": "^0.24.0",
-    "brotli": "^1.3.2"
+    "brotli": "^1.3.2",
+    "brotli-wasm": "^1.1.0",
+    "wasm-brotli": "^2.0.2"
   }
 }
