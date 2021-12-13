@@ -1,8 +1,6 @@
 import { KeywordRequest } from './handler'
 import { handleFetchResponse } from './utils/handleFetchResponse'
 
-const tableName = 'logs'
-
 export async function pushToBigQuery(
   keywordRequest: KeywordRequest,
   bucketObjectKey: string,
@@ -11,7 +9,7 @@ export async function pushToBigQuery(
 ): Promise<void> {
   await handleFetchResponse(
     fetch(
-      `https://bigquery.googleapis.com/bigquery/v2/projects/${GOOGLE_CLOUD_PROJECT}/datasets/serps/tables/${tableName}/insertAll?${new URLSearchParams(
+      `https://bigquery.googleapis.com/bigquery/v2/projects/${GOOGLE_CLOUD_PROJECT}/datasets/serps/tables/request_log/insertAll?${new URLSearchParams(
         {
           key: GCP_API_KEY,
         },
